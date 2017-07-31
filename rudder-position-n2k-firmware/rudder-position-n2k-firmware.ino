@@ -1,8 +1,16 @@
+/*
+ * FOSS + OSHW NMEA 2000 Rudder Position Sensor
+ *  (c) Daniel Harmsworth, 2017
+ *  
+ *  Based on Hall Effect rotary encoder (0-5v) mounted to replicate rudder position.
+ *  
+ */
+
 #include <NMEA2000_CAN.h>
 #include <N2kMessages.h>
 
 #define VERSION 0.1a
-#define HWVERSION 0.1a
+#define HWVERSION prototype
 
 #define SENSOR_PIN A1           // Pin connected to the position sensor
 #define SENSOR_RANGE 3141       // Full sensor range in milliradians
@@ -22,9 +30,9 @@ void setup() {
   );
   
   NMEA2000.SetDeviceInformation(  112233, // Unique number. Use e.g. Serial number.
-                                  155,    // Device function=Rudder. See codes on http://www.nmea.org/Assets/20120726%20nmea%202000%20class%20&%20function%20codes%20v%202.00.pdf
-                                  40,     // Device class=Steering and Control Surfaces. See codes on  http://www.nmea.org/Assets/20120726%20nmea%202000%20class%20&%20function%20codes%20v%202.00.pdf
-                                  2040    // Just choosen free from code list on http://www.nmea.org/Assets/20121020%20nmea%202000%20registration%20list.pdf                               
+                                  155,    // Device function=Rudder. See codes at http://www.nmea.org/Assets/20120726%20nmea%202000%20class%20&%20function%20codes%20v%202.00.pdf
+                                  40,     // Device class=Steering and Control Surfaces. See codes at  http://www.nmea.org/Assets/20120726%20nmea%202000%20class%20&%20function%20codes%20v%202.00.pdf
+                                  2040    // Just choose a free one from code list at http://www.nmea.org/Assets/20121020%20nmea%202000%20registration%20list.pdf                               
   );
 
   NMEA2000.SetMode(tNMEA2000::N2km_NodeOnly,22);      // Set the mode, NodeOnly as we're not listening on this device.
@@ -34,14 +42,15 @@ void setup() {
 }
 
 void loop() {
-  sendN2kRudderPosition();
-  NMEA2000.ParseMessages();
+  sendN2kRudderPosition();  // Detect the rudder position and transmit it to the N2K network, only runs every UPDATE_PERIOD milliseconds.
+  NMEA2000.ParseMessages(); // Read and respond to any incoming messages on the N2K network
 }
 
-float getRudderPosition() {
-  int RudderPosRaw = analogRead(SENSOR_PIN);
+// Returns the rudder position in milliradians
+int getRudderPosition() {
+  int RudderPosRaw = analogRead(SENSOR_PIN);  // Read 0-5v value from encoder
   
-  // Dead ahead is 0 radians turn, negative number is turning to port, positive to starboard.
+  // Dead ahead is 0 radians turn, negative number is bow turning to port, positive bow turns to starboard.
   int RudderPos = map(RudderPosRaw, 0, 1024, -SENSOR_RANGE/2, SENSOR_RANGE/2);
 }
 
@@ -53,7 +62,7 @@ void sendN2kRudderPosition() {
    if (LastUpdated + UPDATE_PERIOD < millis()) {
     LastUpdated = millis();
     int RawRudderPosition = getRudderPosition();
-    double RudderPosition = 12.25; // DONT LEAVE THIS HERE
+    double RudderPosition = 0.278; // DONT LEAVE THIS HERE
     
     SetN2kRudder(N2kMsg,RudderPosition);
     NMEA2000.SendMsg(N2kMsg);
