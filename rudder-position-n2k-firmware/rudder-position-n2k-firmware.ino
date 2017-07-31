@@ -72,10 +72,10 @@ void sendN2kRudderPosition() {
    
    if (LastUpdated + UPDATE_PERIOD < millis()) {
      LastUpdated = millis();
-     int RawRudderPosition = getRudderPosition();
-     double RudderPosition = (double)RawRudderPosition / 1000;
-     SetN2kRudder(N2kMsg,RudderPosition);
-     NMEA2000.SendMsg(N2kMsg);
+     int RawRudderPosition = getRudderPosition();               // Get the rudder position in milliradians
+     double RudderPosition = (double)RawRudderPosition / 1000;  // Convert to double precision in radians
+     SetN2kRudder(N2kMsg,RudderPosition);                       // Set N2kMsg to a Rudder (PGN 127245) position message based on RudderPrecision
+     NMEA2000.SendMsg(N2kMsg);                                  // Send the N2K message to the network
    }
 }
 
