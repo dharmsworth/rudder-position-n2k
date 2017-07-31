@@ -42,7 +42,7 @@ void setup() {
   #ifdef DEBUG
     Serial.begin(115200);
     NMEA2000.SetForwardStream(&Serial);
-    NMEA2000.SetDebugMode(tNMEA2000::dm_Actisense); // Uncomment if using ATMega2560
+    NMEA2000.SetDebugMode(tNMEA2000::dm_Actisense);     // Uncomment if using ATMega2560
   #else
     NMEA2000.EnableForward(false);                      // Do not forward all N2K data to UART.
   #endif
@@ -62,6 +62,7 @@ int getRudderPosition() {
   
   // Dead ahead is 0 radians turn, negative number is bow turning to port, positive bow turns to starboard.
   int RudderPos = map(RudderPosRaw, 0, 1024, -SENSOR_RANGE/2, SENSOR_RANGE/2);
+  return RudderPos;
 }
 
 void sendN2kRudderPosition() {
@@ -70,12 +71,11 @@ void sendN2kRudderPosition() {
    tN2kMsg N2kMsg;
    
    if (LastUpdated + UPDATE_PERIOD < millis()) {
-    LastUpdated = millis();
-    int RawRudderPosition = getRudderPosition();
-    double RudderPosition = 0.278; // DONT LEAVE THIS HERE
-    
-    SetN2kRudder(N2kMsg,RudderPosition);
-    NMEA2000.SendMsg(N2kMsg);
+     LastUpdated = millis();
+     int RawRudderPosition = getRudderPosition();
+     double RudderPosition = (double)RawRudderPosition / 1000;
+     SetN2kRudder(N2kMsg,RudderPosition);
+     NMEA2000.SendMsg(N2kMsg);
    }
 }
 
