@@ -7,6 +7,7 @@
 #define SENSOR_PIN A1           // Pin connected to the position sensor
 #define SENSOR_RANGE 3141       // Full sensor range in milliradians
 
+#define UPDATE_PERIOD 1000      // How often to update the position and send to the network in milliseconds
 
 const unsigned long TransmitMessages[] PROGMEM={127245L,0};
 
@@ -33,14 +34,29 @@ void setup() {
 }
 
 void loop() {
-  
-
+  sendN2kRudderPosition();
+  NMEA2000.ParseMessages();
 }
 
-float getHelmPos() {
-  int helmPosRaw = analogRead(SENSOR_PIN);
+float getRudderPosition() {
+  int RudderPosRaw = analogRead(SENSOR_PIN);
   
   // Dead ahead is 0 radians turn, negative number is turning to port, positive to starboard.
-  int helmPos = map(helmPosRaw, 0, 1024, -SENSOR_RANGE/2, SENSOR_RANGE/2);
+  int RudderPos = map(RudderPosRaw, 0, 1024, -SENSOR_RANGE/2, SENSOR_RANGE/2);
+}
+
+void sendN2kRudderPosition() {
+   static unsigned long LastUpdated=millis();
+
+   tN2kMsg N2kMsg;
+   
+   if (LastUpdated + UPDATE_PERIOD < millis()) {
+    LastUpdated = millis();
+    int RawRudderPosition = getRudderPosition();
+    double RudderPosition = 12.25; // DONT LEAVE THIS HERE
+    
+    SetN2kRudder(N2kMsg,RudderPosition);
+    NMEA2000.SendMsg(N2kMsg);
+   }
 }
 
