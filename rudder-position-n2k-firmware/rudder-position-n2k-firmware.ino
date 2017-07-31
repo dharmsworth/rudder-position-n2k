@@ -14,6 +14,7 @@
 
 #define SENSOR_PIN A1           // Pin connected to the position sensor
 #define SENSOR_RANGE 3141       // Full sensor range in milliradians
+//#define INVERT_SENSOR
 
 #define UPDATE_PERIOD 1000      // How often to update the position and send to the network in milliseconds
 
@@ -61,7 +62,12 @@ int getRudderPosition() {
   int RudderPosRaw = analogRead(SENSOR_PIN);  // Read 0-5v value from encoder
   
   // Dead ahead is 0 radians turn, negative number is bow turning to port, positive bow turns to starboard.
-  int RudderPos = map(RudderPosRaw, 0, 1024, -SENSOR_RANGE/2, SENSOR_RANGE/2);
+  #ifdef INVERT_SENSOR
+    int RudderPos = map(RudderPosRaw, 0, 1024, SENSOR_RANGE/2, -SENSOR_RANGE/2);
+  #else
+    int RudderPos = map(RudderPosRaw, 0, 1024, -SENSOR_RANGE/2, SENSOR_RANGE/2);
+  #endif
+  
   return RudderPos;
 }
 
