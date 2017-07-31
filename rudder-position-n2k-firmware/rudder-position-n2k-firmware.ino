@@ -17,11 +17,13 @@
 
 #define UPDATE_PERIOD 1000      // How often to update the position and send to the network in milliseconds
 
+#define DEBUG
+
 const unsigned long TransmitMessages[] PROGMEM={127245L,0};
 
 void setup() {
   pinMode(SENSOR_PIN, INPUT);
-
+   
   NMEA2000.SetProductInformation( "00000001",                     // Manufacturer's Model serial code
                                   100,                            // Manufacturer's product code
                                   "OSHW Rudder Position Sensor",  // Manufacturer's Model ID
@@ -36,7 +38,15 @@ void setup() {
   );
 
   NMEA2000.SetMode(tNMEA2000::N2km_NodeOnly,22);      // Set the mode, NodeOnly as we're not listening on this device.
-  NMEA2000.EnableForward(false);                      // Do not forward all N2K data to UART.
+  
+  #ifdef DEBUG
+    Serial.begin(115200);
+    NMEA2000.SetForwardStream(&Serial);
+    NMEA2000.SetDebugMode(tNMEA2000::dm_Actisense); // Uncomment if using ATMega2560
+  #else
+    NMEA2000.EnableForward(false);                      // Do not forward all N2K data to UART.
+  #endif
+  
   NMEA2000.ExtendTransmitMessages(TransmitMessages);  // Tell the N2K library what PGN's we're going to transmit.
   NMEA2000.Open();                                    // Let the fun begin!
 }
