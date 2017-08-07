@@ -6,44 +6,48 @@
  *  
  */
 
+#define N2k_SPI_CS_PIN 10
+#define USE_N2K_CAN 1
+
 #include <NMEA2000_CAN.h>
 #include <N2kMessages.h>
 
-#define VERSION 0.1a
-#define HWVERSION prototype
+#define VERSION "0.1a"
+#define HWVERSION "prototype"
 
 #define SENSOR_PIN A1           // Pin connected to the position sensor
 #define SENSOR_RANGE 3141       // Full sensor range in milliradians
-//#define INVERT_SENSOR
+//#define INVERT_SENSOR         
 
-#define UPDATE_PERIOD 1000      // How often to update the position and send to the network in milliseconds
+#define UPDATE_PERIOD 1000        // How often to update the position and send to the network in milliseconds
+#define BEACON_PERIOD 5000      // How often to beacon the device info out. No periodic beacon if undefined.
 
-#define DEBUG
+//#define DEBUG
 
 const unsigned long TransmitMessages[] PROGMEM={127245L,0};
 
 void setup() {
   pinMode(SENSOR_PIN, INPUT);
-   
+  digitalWrite(10, LOW);
   NMEA2000.SetProductInformation( "00000001",                     // Manufacturer's Model serial code
                                   100,                            // Manufacturer's product code
-                                  "OSHW Rudder Position Sensor",  // Manufacturer's Model ID
-                                  "VERSION",                      // Manufacturer's Software version code
-                                  "HWVERSION"                     // Manufacturer's Model version
+                                  "OSHW Rudder Sensor",           // Manufacturer's Model ID
+                                  VERSION,                        // Manufacturer's Software version code
+                                  HWVERSION                       // Manufacturer's Model version
   );
   
   NMEA2000.SetDeviceInformation(  112233, // Unique number. Use e.g. Serial number.
                                   155,    // Device function=Rudder. See codes at http://www.nmea.org/Assets/20120726%20nmea%202000%20class%20&%20function%20codes%20v%202.00.pdf
                                   40,     // Device class=Steering and Control Surfaces. See codes at  http://www.nmea.org/Assets/20120726%20nmea%202000%20class%20&%20function%20codes%20v%202.00.pdf
-                                  2040    // Just choose a free one from code list at http://www.nmea.org/Assets/20121020%20nmea%202000%20registration%20list.pdf                               
+                                  2020    // Just choose a free one from code list at http://www.nmea.org/Assets/20121020%20nmea%202000%20registration%20list.pdf                               
   );
 
-  NMEA2000.SetMode(tNMEA2000::N2km_NodeOnly,22);      // Set the mode, NodeOnly as we're not listening on this device.
+  NMEA2000.SetMode(tNMEA2000::N2km_NodeOnly, 23);      // Set the mode, NodeOnly as we're not listening on this device.
   
   #ifdef DEBUG
     Serial.begin(115200);
     NMEA2000.SetForwardStream(&Serial);
-    NMEA2000.SetDebugMode(tNMEA2000::dm_Actisense);     // Uncomment if using ATMega2560
+    //NMEA2000.SetDebugMode(tNMEA2000::dm_ClearText);     // Uncomment if using ATMega2560
   #else
     NMEA2000.EnableForward(false);                      // Do not forward all N2K data to UART.
   #endif
@@ -54,6 +58,9 @@ void setup() {
 
 void loop() {
   sendN2kRudderPosition();  // Detect the rudder position and transmit it to the N2K network, only runs every UPDATE_PERIOD milliseconds.
+  #ifdef BEACON_PERIOD
+    sendN2kBeacon();
+  #endif
   NMEA2000.ParseMessages(); // Read and respond to any incoming messages on the N2K network
 }
 
@@ -70,6 +77,18 @@ int getRudderPosition() {
   
   return RudderPos;
 }
+
+#ifdef BEACON_PERIOD
+  void sendN2kBeacon() {
+    static unsigned long LastBeacon=millis();
+    if (LastBeacon + BEACON_PERIOD < millis() )
+    {
+      LastBeacon = millis();
+      NMEA2000.SendProductInformation();
+      NMEA2000.SendIsoAddressClaim();
+    }
+  }
+#endif
 
 void sendN2kRudderPosition() {
    static unsigned long LastUpdated=millis();
