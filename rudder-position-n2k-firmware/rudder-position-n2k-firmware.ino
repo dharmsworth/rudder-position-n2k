@@ -28,7 +28,7 @@ const unsigned long TransmitMessages[] PROGMEM={127245L,0};
 
 void setup() {
   pinMode(SENSOR_PIN, INPUT);
-  digitalWrite(10, LOW);
+  
   NMEA2000.SetProductInformation( "00000001",                     // Manufacturer's Model serial code
                                   100,                            // Manufacturer's product code
                                   "OSHW Rudder Sensor",           // Manufacturer's Model ID
