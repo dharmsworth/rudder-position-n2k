@@ -6,18 +6,19 @@
  *  
  */
 
-#define N2k_SPI_CS_PIN 10
-#define USE_N2K_CAN 1
+#define N2k_SPI_CS_PIN 10  // For DFRobot CAN Shield V2
+#define USE_N2K_CAN 1      // tell the library to use the MCP2515 CAN Controller
 
 #include <NMEA2000_CAN.h>
 #include <N2kMessages.h>
 
 #define VERSION "0.1a"
 #define HWVERSION "prototype"
+#define N2K_ADDRESS 23
 
 #define SENSOR_PIN A1           // Pin connected to the position sensor
 #define SENSOR_RANGE 3141       // Full sensor range in milliradians
-//#define INVERT_SENSOR         
+//#define INVERT_SENSOR         // Invert the mapping of sensor position +/- to milliradians +/-
 
 #define UPDATE_PERIOD 1000        // How often to update the position and send to the network in milliseconds
 #define BEACON_PERIOD 5000      // How often to beacon the device info out. No periodic beacon if undefined.
@@ -42,7 +43,7 @@ void setup() {
                                   2020    // Just choose a free one from code list at http://www.nmea.org/Assets/20121020%20nmea%202000%20registration%20list.pdf                               
   );
 
-  NMEA2000.SetMode(tNMEA2000::N2km_NodeOnly, 23);      // Set the mode, NodeOnly as we're not listening on this device.
+  NMEA2000.SetMode(tNMEA2000::N2km_NodeOnly, N2K_ADDRESS);      // Set the mode, NodeOnly as we're not listening on this device.
   
   #ifdef DEBUG
     Serial.begin(115200);
