@@ -25,7 +25,7 @@
 #include <NMEA2000_CAN.h>
 #include <N2kMessages.h>
 
-#define VERSION "0.1a"
+#define VERSION "0.2a"
 #define HWVERSION "prototype"
 #define N2K_ADDRESS 23
 
