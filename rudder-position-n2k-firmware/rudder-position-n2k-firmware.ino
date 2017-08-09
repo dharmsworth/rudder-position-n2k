@@ -29,16 +29,20 @@
 #define HWVERSION "prototype"
 #define N2K_ADDRESS 23
 
+#define AVERAGE_WINDOW 10       // How many samples to average for noise exclusion.
 #define SENSOR_PIN A1           // Pin connected to the position sensor
 #define SENSOR_RANGE 3141       // Full sensor range in milliradians
 //#define INVERT_SENSOR         // Invert the mapping of sensor position +/- to milliradians +/-
 
-#define UPDATE_PERIOD 1000        // How often to update the position and send to the network in milliseconds
+#define UPDATE_PERIOD 500       // How often to update the position and send to the network in milliseconds
 #define BEACON_PERIOD 5000      // How often to beacon the device info out. No periodic beacon if undefined.
 
 //#define DEBUG
 
-const unsigned long TransmitMessages[] PROGMEM={127245L,0};
+int rudderPosition = 0;         // Holds the current position of the rudder in milliradians.
+int rudderWindow[AVERAGE_WINDOW];
+int windowPosition = 0;
+const unsigned long TransmitMessages[] PROGMEM={127245L,0}; // List of PGNs we're going to send from this device.
 
 void setup() {
   pinMode(SENSOR_PIN, INPUT);
@@ -71,15 +75,17 @@ void setup() {
 }
 
 void loop() {
-  sendN2kRudderPosition();  // Detect the rudder position and transmit it to the N2K network, only runs every UPDATE_PERIOD milliseconds.
+  getRudderPosition();      // Read the rudder sensor, recalculate the moving average and set rudderPosition.
+  sendN2kRudderPosition();  // Transmit the rudder position to the N2K network, only runs every UPDATE_PERIOD milliseconds.
+  
   #ifdef BEACON_PERIOD
-    sendN2kBeacon();
+    sendN2kBeacon();        // Send product information and ISO Address Claim, only runs every BEACON_PERIOD milliseconds.
   #endif
+  
   NMEA2000.ParseMessages(); // Read and respond to any incoming messages on the N2K network
 }
 
-// Returns the rudder position in milliradians
-int getRudderPosition() {
+void getRudderPosition() {
   int RudderPosRaw = analogRead(SENSOR_PIN);  // Read 0-5v value from encoder
   
   // Dead ahead is 0 radians turn, negative number is bow turning to port, positive bow turns to starboard.
@@ -88,8 +94,16 @@ int getRudderPosition() {
   #else
     int RudderPos = map(RudderPosRaw, 0, 1024, -SENSOR_RANGE/2, SENSOR_RANGE/2);
   #endif
+
+  if (windowPosition >= AVERAGE_WINDOW ) { windowPosition = 0; }
+  rudderWindow[windowPosition] = RudderPos;
+  windowPosition++;
   
-  return RudderPos;
+  long rudderSum = 0;
+  for ( int i = 0; i < AVERAGE_WINDOW; i++ ){
+    rudderSum = rudderSum + (long)rudderWindow[i];
+  }
+  rudderPosition = rudderSum / AVERAGE_WINDOW;
 }
 
 #ifdef BEACON_PERIOD
@@ -111,10 +125,9 @@ void sendN2kRudderPosition() {
    
    if (LastUpdated + UPDATE_PERIOD < millis()) {
      LastUpdated = millis();
-     int RawRudderPosition = getRudderPosition();               // Get the rudder position in milliradians
-     double RudderPosition = (double)RawRudderPosition / 1000;  // Convert to double precision in radians
-     SetN2kRudder(N2kMsg,RudderPosition);                       // Set N2kMsg to a Rudder (PGN 127245) position message based on RudderPrecision
-     NMEA2000.SendMsg(N2kMsg);                                  // Send the N2K message to the network
+     double rudderPositionRadians = (double)rudderPosition / 1000;  // Convert to double precision in radians
+     SetN2kRudder(N2kMsg,rudderPositionRadians);                    // Set N2kMsg to a Rudder (PGN 127245) position message based on RudderPrecision
+     NMEA2000.SendMsg(N2kMsg);                                      // Send the N2K message to the network
    }
 }
 
