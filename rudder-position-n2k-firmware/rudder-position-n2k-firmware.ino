@@ -16,7 +16,7 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *  
  *  Based on Hall Effect rotary encoder (0-5v) mounted to replicate rudder position.
- *  
+ *  Honeywell RTY120HVNAX or RTY090HVNAX recommended (IP69K devices)
  */
 
 #define N2k_SPI_CS_PIN 10  // For DFRobot CAN Shield V2
@@ -29,19 +29,18 @@
 #define HWVERSION "prototype"
 #define N2K_ADDRESS 23
 
-#define AVERAGE_WINDOW 10       // How many samples to average for noise exclusion.
 #define SENSOR_PIN A1           // Pin connected to the position sensor
-#define SENSOR_RANGE 3141       // Full sensor range in milliradians
+#define SENSOR_RANGE 3141       // Full sensor range in milliradians 
 //#define INVERT_SENSOR         // Invert the mapping of sensor position +/- to milliradians +/-
+
+#define SENSOR_MIN 103          // Sensor zero position based on 10 bit 0-5v, RTY* Series this is 0.5v or ~103
+#define SENSOR_MAX 922          // Sensor max position based on 10 bit 0-5v, RTY* Series this is 4.5v or ~922
 
 #define UPDATE_PERIOD 500       // How often to update the position and send to the network in milliseconds
 #define BEACON_PERIOD 5000      // How often to beacon the device info out. No periodic beacon if undefined.
 
-//#define DEBUG
+#define DEBUG
 
-int rudderPosition = 0;         // Holds the current position of the rudder in milliradians.
-int rudderWindow[AVERAGE_WINDOW];
-int windowPosition = 0;
 const unsigned long TransmitMessages[] PROGMEM={127245L,0}; // List of PGNs we're going to send from this device.
 
 void setup() {
@@ -65,17 +64,17 @@ void setup() {
   #ifdef DEBUG
     Serial.begin(115200);
     NMEA2000.SetForwardStream(&Serial);
-    //NMEA2000.SetDebugMode(tNMEA2000::dm_ClearText);     // Uncomment if using ATMega2560
+    NMEA2000.SetDebugMode(tNMEA2000::dm_ClearText);     //Uncomment for plaintext output to serial
+    //NMEA2000.SetDebugMode(tNMEA2000::dm_Actisense);   //Uncomment for Actisense style output on the ATMega2560
   #else
     NMEA2000.EnableForward(false);                      // Do not forward all N2K data to UART.
   #endif
   
-  NMEA2000.ExtendTransmitMessages(TransmitMessages);  // Tell the N2K library what PGN's we're going to transmit.
-  NMEA2000.Open();                                    // Let the fun begin!
+  NMEA2000.ExtendTransmitMessages(TransmitMessages);    // Tell the N2K library what PGN's we're going to transmit.
+  NMEA2000.Open();                                      // Let the fun begin!
 }
 
 void loop() {
-  getRudderPosition();      // Read the rudder sensor, recalculate the moving average and set rudderPosition.
   sendN2kRudderPosition();  // Transmit the rudder position to the N2K network, only runs every UPDATE_PERIOD milliseconds.
   
   #ifdef BEACON_PERIOD
@@ -85,25 +84,17 @@ void loop() {
   NMEA2000.ParseMessages(); // Read and respond to any incoming messages on the N2K network
 }
 
-void getRudderPosition() {
-  int RudderPosRaw = analogRead(SENSOR_PIN);  // Read 0-5v value from encoder
+int getRudderPosition() {
+  int RudderPosRaw = analogRead(SENSOR_PIN);  // Read 0-5v value from encoder (10 bit)
   
   // Dead ahead is 0 radians turn, negative number is bow turning to port, positive bow turns to starboard.
   #ifdef INVERT_SENSOR
-    int RudderPos = map(RudderPosRaw, 0, 1024, SENSOR_RANGE/2, -SENSOR_RANGE/2);
+    int RudderPos = map(RudderPosRaw, SENSOR_MIN, SENSOR_MAX, SENSOR_RANGE/2, -SENSOR_RANGE/2);
   #else
-    int RudderPos = map(RudderPosRaw, 0, 1024, -SENSOR_RANGE/2, SENSOR_RANGE/2);
+    int RudderPos = map(RudderPosRaw, SENSOR_MIN, SENSOR_MAX, -SENSOR_RANGE/2, SENSOR_RANGE/2);
   #endif
-
-  if (windowPosition >= AVERAGE_WINDOW ) { windowPosition = 0; }
-  rudderWindow[windowPosition] = RudderPos;
-  windowPosition++;
   
-  long rudderSum = 0;
-  for ( int i = 0; i < AVERAGE_WINDOW; i++ ){
-    rudderSum = rudderSum + (long)rudderWindow[i];
-  }
-  rudderPosition = rudderSum / AVERAGE_WINDOW;
+  return RudderPos;
 }
 
 #ifdef BEACON_PERIOD
@@ -120,12 +111,12 @@ void getRudderPosition() {
 
 void sendN2kRudderPosition() {
    static unsigned long LastUpdated=millis();
-
    tN2kMsg N2kMsg;
    
    if (LastUpdated + UPDATE_PERIOD < millis()) {
      LastUpdated = millis();
-     double rudderPositionRadians = (double)rudderPosition / 1000;  // Convert to double precision in radians
+     double rudderPosition = getRudderPosition();
+     double rudderPositionRadians = rudderPosition / 1000;          // Convert to double precision in radians
      SetN2kRudder(N2kMsg,rudderPositionRadians);                    // Set N2kMsg to a Rudder (PGN 127245) position message based on RudderPrecision
      NMEA2000.SendMsg(N2kMsg);                                      // Send the N2K message to the network
    }
